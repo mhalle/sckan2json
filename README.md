@@ -18,7 +18,7 @@ The SCKAN database requires connection parameters to be configured. This configu
 
 ## Usage
 
-```node index.js > output.json```
+```node index.js > output.json``` or ```node sckan2json > output.json```
 
 (Hey, no one said that this is a fancy app or anything.)
 
