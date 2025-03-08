@@ -58,7 +58,58 @@ async function main() {
       metadata: {
          query_date: new Date().toJSON(),
          version: "2.0",
-         description: "Enhanced SCKAN data with additional metadata"
+         description: "Enhanced SCKAN data with additional metadata",
+         documentation: `
+SCKAN2JSON File Format Documentation:
+
+1. neural_connectivity: Array of neuron connectivity records
+   - id: Neuron ID
+   - origin: Origin location ID
+   - via: Via/intermediate location ID (optional)
+   - destination: Destination location ID
+   - target_organ: Target organ ID (optional)
+
+2. neuron_metadata: Dictionary of neuron metadata indexed by neuron ID
+   - label: Human-readable label
+   - preferred_label: Preferred display label (optional)
+   - species: Array of species this neuron is observed in
+   - sex: Sex specification (can be null)
+   - phenotypes: Array of phenotype IDs
+   - categorized_phenotypes: Array of human-readable phenotype categories
+   - forward_connections: Array of forward neural connections
+   - model_id: Model identifier (e.g., "bolew", "keast")
+   - model_category: Human-readable model category
+   - alert: Alert notes (optional)
+   - reference: Reference information (optional)
+   - diagram_link: URL to diagram (optional)
+   - citation: Array of citation references
+
+3. neural_segments: Array of ordered neuron pathway segments
+   - id: Neuron ID
+   - nodes: Array of connection nodes, each containing:
+     - id: Location ID
+     - type: Node type (e.g., "hasSomaLocation", "hasAxonLocation")
+   - is_synaptic: Boolean indicating if this is a synaptic connection
+
+4. locations: Array of anatomical locations
+   - id: Location ID
+   - location_type: Type categorization (soma, axon, terminal, sensory)
+   - connection_type: Connection type ID
+
+5. labels: Dictionary mapping IDs to IRIs and labels
+   - For each ID, contains:
+     - iri: Full IRI (URI reference)
+     - label: Human-readable label
+     - synonyms: Array of alternative labels/synonyms (if available)
+
+How to use labels:
+- The labels dictionary maps IDs to their readable labels and IRIs
+- To get a human-readable label for any ID in the data:
+  1. Look up the ID in the labels dictionary: labels[id].label
+  2. For neuron types (hasSomaLocation, etc.), use the predefined mappings
+- Example: to get the label for a location with id "NPO:12345":
+  const locationLabel = labels["NPO:12345"]?.label || "Unknown"
+         `
       }
    };
    // abc comme
@@ -154,12 +205,24 @@ async function main() {
       }
    }
 
-   // synonyms with expanded information
-   ret.synonyms = synonyms.map(x => ({ 
-      id: x.id, 
-      label: x.label,
-      iri: x.iri 
-   }));
+   // Add synonyms to the labels dictionary instead of creating a separate section
+   for (let syn of synonyms) {
+      if (syn.id) {
+         // If this ID is already in the labels dictionary
+         if (labels[syn.id]) {
+            // Add the synonym to the synonyms array (create if needed)
+            labels[syn.id].synonyms = labels[syn.id].synonyms || [];
+            labels[syn.id].synonyms.push(syn.label);
+         } else {
+            // Create a new entry with the synonym as the main label
+            labels[syn.id] = {
+               iri: syn.iri,
+               label: syn.label,
+               synonyms: []
+            };
+         }
+      }
+   }
 
    ret.labels = labels;
 
