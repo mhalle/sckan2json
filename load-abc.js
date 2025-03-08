@@ -82,17 +82,21 @@ export async function loadABCData(conn) {
             return PHENOTYPE_CATEGORIES[p] || p;
         });
         
+        // Extract DOIs from reference string
+        const referenceString = n?.Reference?.value || null;
+        const referenceDoIs = extractDOIsFromReference(referenceString);
+        
         // Ensure consistent return types for all fields that could be arrays or strings
         neuronMetaDataIndex[id] = {
             id,
             iri: n.Neuron_IRI.value,
             // String fields
             label: n?.Neuron_Label?.value || null,
-            preferred_label: n?.Neuron_Pref_Label?.value || null,
+            preferred_label: null,  // We don't have this in the basic query
             sex: n?.Sex?.value || null,
             alert: n?.Alert?.value || null,
-            reference: n?.Reference?.value || null,
-            diagram_link: n?.Diagram_Link?.value || null,
+            reference: referenceString,
+            diagram_link: null,  // We don't have this in the basic query
             model_id: modelId,
             model_category: modelCategory,
             
@@ -102,9 +106,15 @@ export async function loadABCData(conn) {
             categorized_phenotypes: categorizedPhenotypes || [],
             forward_connections: getPrefixesFromIRIs(n?.Forward_Connections?.value),
             
-            // Handle citation specially as it might need to be parsed
-            citation: n?.Citations?.value ? n.Citations.value.split(", ") : []
+            // Handle citation from literatureCitation
+            citation: getPrefixesFromIRIs(n?.Citations?.value),
+            
+            // Add extracted DOIs
+            reference_dois: referenceDoIs.map(doi => doi.url)
         };
+        
+        // Add DOIs to the metadata so they can be added to labels dictionary
+        neuronMetaDataIndex[id].reference_doi_data = referenceDoIs;
     }
 
     const aToBViaCQueryResults = await executeDBQuery(conn, DB_NAME, a_b_via_c);
@@ -198,4 +208,26 @@ function getPrefixesFromIRIs(iriString) {
         }
     }
     return ret;
+}
+
+// Extract DOI URLs from reference strings
+function extractDOIsFromReference(referenceString) {
+    if (!referenceString) {
+        return [];
+    }
+    
+    // Match DOI URLs of the format https://doi.org/10.xxxx/xxxxx
+    const doiRegex = /https:\/\/doi\.org\/([0-9]+\.[0-9]+\/[^\s,]+)/g;
+    let match;
+    const dois = [];
+    
+    // Find all DOIs in the string
+    while ((match = doiRegex.exec(referenceString)) !== null) {
+        dois.push({
+            url: match[0],
+            doi: match[1]
+        });
+    }
+    
+    return dois;
 }

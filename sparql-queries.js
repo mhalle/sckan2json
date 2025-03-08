@@ -115,7 +115,7 @@ PREFIX ilxtr: <http://uri.interlex.org/tgbugs/uris/readable/>
 
 # Neuron populations where A projects to B via some Nerve C
 
-SELECT DISTINCT ?Neuron_IRI ?Neuron_Label ?Species ?Sex ?Phenotypes ?Forward_Connections ?Alert ?Reference
+SELECT DISTINCT ?Neuron_IRI ?Neuron_Label ?Species ?Sex ?Phenotypes ?Forward_Connections ?Alert ?Reference ?Citations
 WHERE
 {
     { 
@@ -195,6 +195,19 @@ WHERE
                                   )/rdfs:label ?Phenotype.}
         }
         GROUP BY ?Neuron_IRI ?Neuron_Label
+    }
+    
+    {
+        SELECT DISTINCT  ?Neuron_IRI 
+        (group_concat(distinct ?Citation; separator="|") as ?Citations) 
+        WHERE                  
+        {
+            ?Neuron_IRI rdfs:subClassOf*/rdfs:label 'Neuron'.
+            ?Neuron_IRI ilxtr:hasSomaLocation ?A_IRI.
+            ?Neuron_IRI (ilxtr:hasAxonTerminalLocation | ilxtr:hasAxonSensoryLocation) ?B_IRI.
+            OPTIONAL {?Neuron_IRI ilxtr:literatureCitation ?Citation.}
+        }
+        GROUP BY ?Neuron_IRI
     }
 }
 ORDER BY ?Neuron_IRI

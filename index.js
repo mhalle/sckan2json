@@ -80,7 +80,8 @@ SCKAN2JSON File Format Documentation:
    - model_id: Model identifier (e.g., "bolew", "keast")
    - model_category: Human-readable model category
    - alert: Alert notes (optional)
-   - reference: Reference information (optional)
+   - reference: Full reference text (optional)
+   - reference_dois: Array of DOI URLs extracted from references
    - diagram_link: URL to diagram (optional)
    - citation: Array of citation references
 
@@ -101,6 +102,7 @@ SCKAN2JSON File Format Documentation:
      - iri: Full IRI (URI reference)
      - label: Human-readable label
      - synonyms: Array of alternative labels/synonyms (if available)
+     - doi: Boolean flag indicating if this is a DOI reference (for DOI entries only)
 
 How to use labels:
 - The labels dictionary maps IDs to their readable labels and IRIs
@@ -142,7 +144,20 @@ How to use labels:
          phenotypes: meta.phenotypes || [],
          categorized_phenotypes: meta.categorized_phenotypes || [],
          forward_connections: meta.forward_connections || [],
-         citation: meta.citation || []
+         citation: meta.citation || [],
+         reference_dois: meta.reference_dois || []
+      }
+      
+      // Add DOIs to the labels dictionary
+      if (meta.reference_doi_data && meta.reference_doi_data.length > 0) {
+         meta.reference_doi_data.forEach(doi => {
+            // Use the DOI URL as the ID
+            labels[doi.url] = {
+               iri: doi.url,
+               label: doi.doi,   // DOI number as the human-readable label
+               doi: true         // Flag this as a DOI
+            };
+         });
       }
    });
 
