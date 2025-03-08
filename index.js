@@ -62,6 +62,139 @@ async function main() {
          query_date: new Date().toJSON(),
          version: "2.0",
          description: "Enhanced SCKAN data with additional metadata",
+         json_schema: {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "title": "SCKAN JSON Format",
+            "type": "object",
+            "properties": {
+               "metadata": {
+                  "type": "object",
+                  "properties": {
+                     "query_date": { "type": "string", "format": "date-time" },
+                     "version": { "type": "string" },
+                     "description": { "type": "string" },
+                     "json_schema": { "type": "object" },
+                     "documentation": { "type": "string" }
+                  },
+                  "required": ["query_date", "version"]
+               },
+               "neural_connectivity": {
+                  "type": "array",
+                  "items": {
+                     "type": "object",
+                     "properties": {
+                        "id": { "type": "string" },
+                        "origin": { "type": "string" },
+                        "via": { "type": "string" },
+                        "destination": { "type": "string" },
+                        "target_organ": { "type": "string" }
+                     },
+                     "required": ["id"]
+                  }
+               },
+               "neuron_metadata": {
+                  "type": "object",
+                  "additionalProperties": {
+                     "type": "object",
+                     "properties": {
+                        "label": { "type": "string" },
+                        "preferred_label": { "type": "string" },
+                        "sex": { "type": "string" },
+                        "alert": { "type": "string" },
+                        "reference": { "type": "string" },
+                        "diagram_link": { "type": "string" },
+                        "model_id": { "type": "string" },
+                        "model_category": { "type": "string" },
+                        "species": { 
+                           "type": "array", 
+                           "items": { "type": "string" } 
+                        },
+                        "phenotypes": { 
+                           "type": "array", 
+                           "items": { "type": "string" } 
+                        },
+                        "categorized_phenotypes": { 
+                           "type": "array", 
+                           "items": { "type": "string" } 
+                        },
+                        "forward_connections": { 
+                           "type": "array", 
+                           "items": { "type": "string" } 
+                        },
+                        "citation": { 
+                           "type": "array", 
+                           "items": { "type": "string" } 
+                        },
+                        "reference_dois": { 
+                           "type": "array", 
+                           "items": { "type": "string" } 
+                        }
+                     }
+                  }
+               },
+               "neural_segments": {
+                  "type": "array",
+                  "items": {
+                     "type": "object",
+                     "properties": {
+                        "id": { "type": "string" },
+                        "nodes": {
+                           "type": "array",
+                           "items": {
+                              "type": "object",
+                              "properties": {
+                                 "id": { "type": "string" },
+                                 "type": { "type": "string" }
+                              },
+                              "required": ["id"]
+                           }
+                        },
+                        "is_synaptic": { "type": "boolean" }
+                     },
+                     "required": ["id", "nodes"]
+                  }
+               },
+               "locations": {
+                  "type": "array",
+                  "items": {
+                     "type": "object",
+                     "properties": {
+                        "id": { "type": "string" },
+                        "location_type": { "type": "string" },
+                        "connection_type": { "type": "string" }
+                     },
+                     "required": ["id"]
+                  }
+               },
+               "labels": {
+                  "type": "object",
+                  "additionalProperties": {
+                     "type": "object",
+                     "properties": {
+                        "iri": { "type": "string" },
+                        "label": { "type": "string" },
+                        "synonyms": {
+                           "type": "array",
+                           "items": { "type": "string" }
+                        }
+                     },
+                     "required": ["iri", "label"]
+                  }
+               },
+               "doi_metadata": {
+                  "type": "object",
+                  "additionalProperties": {
+                     "type": "object",
+                     "properties": {
+                        "doi": { "type": "string" },
+                        "label": { "type": "string" }
+                     },
+                     "required": ["doi"]
+                  }
+               }
+            },
+            "required": ["metadata", "neural_connectivity", "neuron_metadata", "neural_segments", "locations", "labels"]
+         },
          documentation: `
 SCKAN2JSON File Format Documentation:
 
@@ -122,38 +255,42 @@ How to use labels:
       }
    };
    // abc comme
-   ret.neural_connectivity = abc.map(x => ({
-      id: x.neuron?.id,
-      origin: x.origin?.id,
-      via: x.via?.id,
-      destination: x.destination?.id,
-      target_organ: x.targetOrgan?.id,
-   }))
+   ret.neural_connectivity = abc.map(x => {
+      const conn = { id: x.neuron?.id };
+      if (x.origin?.id) conn.origin = x.origin.id;
+      if (x.destination?.id) conn.destination = x.destination.id;
+      if (x.via?.id) conn.via = x.via.id;
+      if (x.targetOrgan?.id) conn.target_organ = x.targetOrgan.id;
+      return conn;
+   })
 
    // abc neuron metadata
 
    ret.neuron_metadata = {};
    abc.forEach((x) => {
       const meta = x.neuronMetaData;
-      ret.neuron_metadata[meta.id] = {
-         // String fields (can be null but not undefined)
-         label: meta.label,
-         preferred_label: meta.preferred_label,
-         sex: meta.sex,
-         alert: meta.alert,
-         reference: meta.reference,
-         diagram_link: meta.diagram_link,
-         model_id: meta.model_id,
-         model_category: meta.model_category,
-         
-         // Array fields (always arrays, never null)
-         species: meta.species || [],
-         phenotypes: meta.phenotypes || [],
-         categorized_phenotypes: meta.categorized_phenotypes || [],
-         forward_connections: meta.forward_connections || [],
-         citation: meta.citation || [],
-         reference_dois: meta.reference_dois || []
-      }
+      // Create neuron metadata object without null values
+      const neuronMeta = {};
+      
+      // Add string fields only if they have values
+      if (meta.label) neuronMeta.label = meta.label;
+      if (meta.preferred_label) neuronMeta.preferred_label = meta.preferred_label;
+      if (meta.sex) neuronMeta.sex = meta.sex;
+      if (meta.alert) neuronMeta.alert = meta.alert;
+      if (meta.reference) neuronMeta.reference = meta.reference;
+      if (meta.diagram_link) neuronMeta.diagram_link = meta.diagram_link;
+      if (meta.model_id) neuronMeta.model_id = meta.model_id;
+      if (meta.model_category) neuronMeta.model_category = meta.model_category;
+      
+      // Add array fields only if they have items
+      if (meta.species && meta.species.length > 0) neuronMeta.species = meta.species;
+      if (meta.phenotypes && meta.phenotypes.length > 0) neuronMeta.phenotypes = meta.phenotypes;
+      if (meta.categorized_phenotypes && meta.categorized_phenotypes.length > 0) neuronMeta.categorized_phenotypes = meta.categorized_phenotypes;
+      if (meta.forward_connections && meta.forward_connections.length > 0) neuronMeta.forward_connections = meta.forward_connections;
+      if (meta.citation && meta.citation.length > 0) neuronMeta.citation = meta.citation;
+      if (meta.reference_dois && meta.reference_dois.length > 0) neuronMeta.reference_dois = meta.reference_dois;
+      
+      ret.neuron_metadata[meta.id] = neuronMeta;
       
       // Add DOIs to the doi_metadata object
       if (meta.reference_doi_data && meta.reference_doi_data.length > 0) {
@@ -161,11 +298,14 @@ How to use labels:
             // Use the DOI URL as the ID
             const doiUrl = doi.url;
             
-            // Add to doi_metadata
+            // Add to doi_metadata, skipping empty fields
             doiMetadata[doiUrl] = {
-               doi: doi.doi,           // The DOI number
-               label: doi.label || ""  // The citation text
+               doi: doi.doi  // The DOI number
             };
+            // Only add label if it's not empty
+            if (doi.label && doi.label.trim() !== "") {
+               doiMetadata[doiUrl].label = doi.label;
+            }
          });
       }
    });
@@ -188,20 +328,31 @@ How to use labels:
       }
    }
 
-   ret.neural_segments = segments.map(x => ({
-      id: x.neuron?.id,
-      nodes: [
-         {
-            id: x.node1?.id,
-            type: x.node1_type
-         },
-         {
-            id: x.node2?.id,
-            type: x.node2_type
-         }
-      ],
-      is_synaptic: x.is_synaptic || false
-   }));
+   ret.neural_segments = segments.map(x => {
+      const seg = { id: x.neuron?.id };
+      
+      // Create array of nodes with non-null values
+      const nodes = [];
+      
+      if (x.node1?.id) {
+         const node1 = { id: x.node1.id };
+         if (x.node1_type) node1.type = x.node1_type;
+         nodes.push(node1);
+      }
+      
+      if (x.node2?.id) {
+         const node2 = { id: x.node2.id };
+         if (x.node2_type) node2.type = x.node2_type;
+         nodes.push(node2);
+      }
+      
+      seg.nodes = nodes;
+      
+      // Only include is_synaptic if it's true
+      if (x.is_synaptic) seg.is_synaptic = true;
+      
+      return seg;
+   });
 
    // Add segment labels to the labels dictionary (only IRI and label mappings)
    for (let x of segments) {
@@ -210,13 +361,14 @@ How to use labels:
       addLabel(labels, x.node2);
    }
 
-   // Enhanced locations with more detailed type information
+   // Enhanced locations with more detailed type information, skipping null fields
    ret.locations = Array.from(
-      new Set(locations.map(x => ({
-         id: x.id,
-         location_type: x.connection_type,
-         connection_type: x.connection_id
-      })))
+      new Set(locations.map(x => {
+         const loc = { id: x.id };
+         if (x.connection_type) loc.location_type = x.connection_type;
+         if (x.connection_id) loc.connection_type = x.connection_id;
+         return loc;
+      }))
    );
    
    // Since node types are now included in the segments.nodes array,
@@ -253,7 +405,42 @@ How to use labels:
    // Add DOI metadata as a top-level object
    ret.doi_metadata = doiMetadata;
 
-   console.log(JSON.stringify(ret, null, 2));
+   // Remove null and empty fields recursively from the entire object
+   function removeEmptyFields(obj) {
+      if (typeof obj !== 'object' || obj === null) {
+         return obj;
+      }
+      
+      // Handle arrays
+      if (Array.isArray(obj)) {
+         return obj.map(item => removeEmptyFields(item))
+                  .filter(item => {
+                     // Keep arrays even if empty
+                     if (Array.isArray(item)) return true;
+                     // For other values, filter out null, undefined, empty strings, and empty objects
+                     return item !== null && item !== undefined && 
+                            (typeof item !== 'string' || item !== '') &&
+                            (typeof item !== 'object' || Object.keys(item).length > 0);
+                  });
+      }
+      
+      // Handle objects
+      const result = {};
+      for (const key in obj) {
+         const value = removeEmptyFields(obj[key]);
+         if (value !== null && value !== undefined && 
+             (typeof value !== 'string' || value !== '') &&
+             (typeof value !== 'object' || (Array.isArray(value) ? value.length > 0 : Object.keys(value).length > 0))) {
+            result[key] = value;
+         }
+      }
+      return result;
+   }
+   
+   // Clean the final output
+   const cleanedOutput = removeEmptyFields(ret);
+
+   console.log(JSON.stringify(cleanedOutput, null, 2));
 }
 
 await main();
