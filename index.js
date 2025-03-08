@@ -54,6 +54,9 @@ async function main() {
    const abc_segments = await loadABCData(conn);
    const [abc, segments] = abc_segments;
 
+   // Create an object to collect all DOI metadata
+   const doiMetadata = {};
+   
    const ret = {
       metadata: {
          query_date: new Date().toJSON(),
@@ -102,7 +105,11 @@ SCKAN2JSON File Format Documentation:
      - iri: Full IRI (URI reference)
      - label: Human-readable label
      - synonyms: Array of alternative labels/synonyms (if available)
-     - doi: Boolean flag indicating if this is a DOI reference (for DOI entries only)
+
+6. doi_metadata: Dictionary of DOI information extracted from references
+   - For each DOI URL, contains:
+     - doi: The DOI number (e.g., "10.1159/000060678")
+     - label: The citation text from the reference
 
 How to use labels:
 - The labels dictionary maps IDs to their readable labels and IRIs
@@ -148,14 +155,16 @@ How to use labels:
          reference_dois: meta.reference_dois || []
       }
       
-      // Add DOIs to the labels dictionary
+      // Add DOIs to the doi_metadata object
       if (meta.reference_doi_data && meta.reference_doi_data.length > 0) {
          meta.reference_doi_data.forEach(doi => {
             // Use the DOI URL as the ID
-            labels[doi.url] = {
-               iri: doi.url,
-               label: doi.doi,   // DOI number as the human-readable label
-               doi: true         // Flag this as a DOI
+            const doiUrl = doi.url;
+            
+            // Add to doi_metadata
+            doiMetadata[doiUrl] = {
+               doi: doi.doi,           // The DOI number
+               label: doi.label || ""  // The citation text
             };
          });
       }
@@ -240,6 +249,9 @@ How to use labels:
    }
 
    ret.labels = labels;
+   
+   // Add DOI metadata as a top-level object
+   ret.doi_metadata = doiMetadata;
 
    console.log(JSON.stringify(ret, null, 2));
 }
