@@ -63,13 +63,12 @@ export async function loadABCData(conn) {
         let modelCategory = null;
         
         if (id) {
-            // Extract model prefix if it exists (e.g., "bolew")
-            const modelMatch = id.match(/^([a-zA-Z]+)\d+/);
-            if (modelMatch && modelMatch[1]) {
-                const potentialModelId = modelMatch[1].toLowerCase();
-                if (MODEL_CATEGORIES[potentialModelId]) {
-                    modelId = potentialModelId;
-                    modelCategory = MODEL_CATEGORIES[potentialModelId];
+            // Check if the ID contains any of our model prefixes
+            for (const [prefix, category] of Object.entries(MODEL_CATEGORIES)) {
+                if (id.toLowerCase().includes(prefix)) {
+                    modelId = prefix;
+                    modelCategory = category;
+                    break;
                 }
             }
         }
@@ -83,22 +82,28 @@ export async function loadABCData(conn) {
             return PHENOTYPE_CATEGORIES[p] || p;
         });
         
+        // Ensure consistent return types for all fields that could be arrays or strings
         neuronMetaDataIndex[id] = {
             id,
             iri: n.Neuron_IRI.value,
-            label: n?.Neuron_Label?.value,
-            preferred_label: n?.Neuron_Pref_Label?.value,
-            sex: n?.Sex?.value,
+            // String fields
+            label: n?.Neuron_Label?.value || null,
+            preferred_label: n?.Neuron_Pref_Label?.value || null,
+            sex: n?.Sex?.value || null,
+            alert: n?.Alert?.value || null,
+            reference: n?.Reference?.value || null,
+            diagram_link: n?.Diagram_Link?.value || null,
+            model_id: modelId,
+            model_category: modelCategory,
+            
+            // Array fields - ensure these are always arrays
             species: getPrefixesFromIRIs(n?.Species?.value),
             phenotypes: phenotypeIds,
-            categorized_phenotypes: categorizedPhenotypes,
+            categorized_phenotypes: categorizedPhenotypes || [],
             forward_connections: getPrefixesFromIRIs(n?.Forward_Connections?.value),
-            alert: n?.Alert?.value,
-            reference: n?.Reference?.value,
-            diagram_link: n?.Diagram_Link?.value,
-            citation: n?.Citations?.value,
-            model_id: modelId,
-            model_category: modelCategory
+            
+            // Handle citation specially as it might need to be parsed
+            citation: n?.Citations?.value ? n.Citations.value.split(", ") : []
         };
     }
 
@@ -175,8 +180,9 @@ export async function loadABCData(conn) {
 }
 
 function getPrefixesFromIRIs(iriString) {
+    // Always return an array, even for null/undefined values
     if (!iriString) {
-        return iriString;
+        return [];
     }
 
     const iris = iriString.split("|");

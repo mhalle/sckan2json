@@ -201,25 +201,43 @@ ORDER BY ?Neuron_IRI
 LIMIT 100000`
 
 export const npo_partial_order =
-`SELECT DISTINCT
-?Neuron_IRI ?Neuron_Label ?V1 ?V1_Label ?V2 ?V2_Label
-WHERE
-{
-    ?Neuron_IRI ilxtr:neuronPartialOrder ?o .
-    ?o (rdf:rest|rdf:first)* ?r1 .
-    ?o (rdf:rest|rdf:first)* ?r2 .
-    ?r1 rdf:rest|rdf:first ?V1 .
-    ?r2 rdf:rest|rdf:first ?V2 .
-    ?V1 rdf:type owl:Class .
-    ?V2 rdf:type owl:Class .
-    ?mediator rdf:first ?V1 .  # car
-    ?mediator rdf:rest*/rdf:first/rdf:first ?V2 .  # caadr
-    ?V1 rdfs:label ?V1_Label.
-    ?V2 rdfs:label ?V2_Label.
-    optional {?Neuron_IRI rdfs:label ?Neuron_Label.}
+`## Axonal path query based on SCKAN Explorer's implementation
 
-FILTER (?V1 != ?V2).
-FILTER (CONTAINS(STR(?Neuron_IRI), 'mmset')).  
-} 
-ORDER BY ?Neuron_IRI 
-limit 100000`
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX ilxtr: <http://uri.interlex.org/tgbugs/uris/readable/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT DISTINCT ?Neuron_IRI ?Neuron_Label ?V1 ?V1_Label ?V2 ?V2_Label ?V1_Type ?V2_Type ?IsSynapse
+WHERE 
+{
+    ?V1 ilxtr:hasNextNode{ilxtr:isConnectedBy ?Neuron_IRI} ?V2.
+    
+    ?V1 rdfs:label ?V1_Label. ?V2 rdfs:label ?V2_Label.
+    OPTIONAL {?Neuron_IRI rdfs:label ?Neuron_Label.}
+   
+    # Find the locational phenotypes for the V1 node
+    ?Neuron_IRI ?V1_Location_Type_IRI ?V1.
+    ?V1_Location_Type_IRI rdfs:label ?V1_Type.
+    
+    # Find the locational phenotype for the V2 node
+    ?Neuron_IRI ?V2_Location_Type_IRI ?V2.
+    ?V2_Location_Type_IRI rdfs:label ?V2_Type.
+  
+    # Filter out the generic hasConnectedLocation relation for the connected nodes.
+    FILTER (ilxtr:hasConnectedLocation not in (?V1_Location_Type_IRI, ?V2_Location_Type_IRI))
+    
+    # Check if ?V2 is associated with a synapse
+    OPTIONAL 
+    {
+        ?Neuron_IRI ilxtr:hasForwardConnection/ilxtr:hasSomaLocation ?Synapse.
+        FILTER (?V2 = ?Synapse)
+        FILTER (?V2_Type = "hasAxonTerminalLocation")
+    }
+    
+    # Set IsSynapse to "Yes" if a synapse is detected, otherwise leave it as NO
+    BIND (IF (BOUND(?Synapse), "YES", "NO") AS ?IsSynapse)
+}
+ORDER BY ?Neuron_IRI ?V1_Label ?V2_Label
+LIMIT 20000`
