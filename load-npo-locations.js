@@ -4,11 +4,9 @@ import { npo_all_locations, npo_synonyms } from "./sparql-queries.js";
 import { getCurieFromIRI } from "./prefix-mapping.js";
 
 const databaseName = 'NPO';
-const qry0 = npo_all_locations;
-
 export async function getNPOLocations(conn) {
     try {
-        var queryResults = await executeDBQuery(conn, databaseName, qry0);
+        var queryResults = await executeDBQuery(conn, databaseName, npo_all_locations);
         return queryResults;
     }
     catch (error) {
@@ -30,9 +28,10 @@ export async function loadNPOSynonyms(conn) {
     const data = await getNPOSynonyms(conn);
     const entities = [];
     for(let d of data) {
+        const iri = d.Location_IRI.value;
         entities.push({
-            iri: d.Location_IRI.value,
-            id: getCurieFromIRI(d.Location_IRI.value),
+            iri: iri,
+            id: getCurieFromIRI(iri),
             label: d.Location_Label.value
         })
     }
@@ -61,9 +60,9 @@ export async function loadAllLocations(conn) {
             id: location_ID,
             iri: location_IRI,
             label: location_label,
-            connection_type
-        }
-        );
+            connection_type,
+            connection_id
+        });
     }
     return entities;
 }

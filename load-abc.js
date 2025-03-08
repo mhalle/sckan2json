@@ -1,195 +1,195 @@
 import { getCurieFromIRI } from "./prefix-mapping.js";
 import { npo_partial_order, npo_neuron_meta, a_b_via_c } from "./sparql-queries.js";
 import { executeDBQuery } from "./execute-query.js";
-import { ClassEntity, AdjTableData, NeuronMetaData, AtoBviaC } from './utilities.js';
 
 // Database and queries
-const dbName = 'NPO';
-//const dbName = 'sckan-explorer'; //from my localhost 
-const qry1 = a_b_via_c;
-const qry2 = npo_neuron_meta;
-const qry3 = npo_partial_order;
+const DB_NAME = 'NPO';
 
-export async function getPartialOrderDataFromDB(conn) {
-    try {
-        let queryResults = await executeDBQuery(conn, dbName, qry3);
-        return queryResults;
-    }
-    catch (error) {
-        console.error(error);
-    }
-}
+// Model categories mapping - these can't be derived from the database
+const MODEL_CATEGORIES = {
+    "bolew": "Bolser-Lewis Model of Defensive Breathing",
+    "keast": "Keast Model of Bladder Innervation",
+    "bromo": "SAWG Model of Bronchomotor Control",
+    "sdcol": "SAWG Model of the Descending Colon",
+    "pancr": "SAWG Model of the Pancreas",
+    "splen": "SAWG Model of the Spleen",
+    "sstom": "SAWG Model of the Stomach",
+    "aacar": "UCLA Model of the Heart",
+    "mmset2cn": "Cranial Nerve Connections",
+    "femrep": "Female Reproductive System",
+    "kidney": "Kidney Connections",
+    "liver": "Liver Connections",
+    "prostate": "Male Reproductive System (Prostate)",
+    "semves": "Male Reproductive System (Seminal Vesicles)",
+    "senmot": "Sensory-Motor Connections",
+    "swglnd": "Sweat Gland Connections",
+    "mmset1": "Uncategorized Connections (Set 1)",
+    "mmset4": "Uncategorized Connections (Set 4)"
+};
 
-export async function getNeuronsMetaDataFromDB(conn) {
-    try {
-        let queryResults = await executeDBQuery(conn, dbName, qry2);
-        return queryResults;
-    }
-    catch (error) {
-        console.error(error);
-    }
-}
-
-export async function getABCDataFromDB(conn) {
-    try {
-        let queryResults = await executeDBQuery(conn, dbName, qry1);
-        return queryResults;
-    }
-    catch (error) {
-        console.error(error);
-    }
-}
+// Phenotype categorization - these can't be derived from the database
+const PHENOTYPE_CATEGORIES = {
+    "Parasympathetic phenotype": "ANS: Parasympathetic",
+    "Pre ganglionic phenotype, Parasympathetic phenotype": "ANS: Parasympathetic Pre-Ganglionic",
+    "Parasympathetic phenotype, Pre ganglionic phenotype": "ANS: Parasympathetic Pre-Ganglionic",
+    "Post ganglionic phenotype, Parasympathetic phenotype": "ANS: Parasympathetic Post-Ganglionic",
+    "Parasympathetic phenotype, Post ganglionic phenotype": "ANS: Parasympathetic Post-Ganglionic",
+    "Sympathetic phenotype": "ANS: Sympathetic",
+    "Pre ganglionic phenotype, Sympathetic phenotype": "ANS: Sympathetic Pre-Ganglionic",
+    "Sympathetic phenotype, Pre ganglionic phenotype": "ANS: Sympathetic Pre-Ganglionic",
+    "Post ganglionic phenotype, Sympathetic phenotype": "ANS: Sympathetic Post-Ganglionic",
+    "Sympathetic phenotype, Post ganglionic phenotype": "ANS: Sympathetic Post-Ganglionic",
+    "Enteric phenotype": "ANS: Enteric",
+    "Sensory phenotype": "Circuit Role: Sensory",
+    "Motor phenotype": "Circuit Role: Motor",
+    "Intrinsic phenotype": "Circuit Role: Intrinsic",
+    "Inhibitory phenotype": "Functional Circuit Role: Inhibitory",
+    "Excitatory phenotype": "Functional Circuit Role: Excitatory",
+    "Spinal cord ascending projection phenotype": "Projection: Spinal cord ascending projection phenotype",
+    "Spinal cord descending projection phenotype": "Projection: Spinal cord descending projection phenotype",
+    "Anterior projecting phenotype": "Projection: Anterior projecting",
+    "Posterior projecting phenotype": "Projection: Posterior projecting",
+    "Intestino fugal projection phenotype": "Projection: Intestino fugal projection phenotype"
+};
 
 export async function loadABCData(conn) {
-    const neuronsMetaDataFromDB = await getNeuronsMetaDataFromDB(conn);
-    const npo_neurons_metadata = getNeuronsMetaData(neuronsMetaDataFromDB);
-
-    const poDataFromDB = await getPartialOrderDataFromDB(conn);
-    let npo_poset = getNPOPartialOrders(poDataFromDB);
-
-    const abc_data = await getABCDataFromDB(conn);
-    const aToBviaC = getAtoBviaC(abc_data);
-    return [aToBviaC, npo_poset];
-
-
-    function getNPOPartialOrders(poData) {
-        let npo_poset_data = [];
-        for (let i = 0; i < poData.length; i++) {
-            let neuron_iri = poData[i].Neuron_IRI.value;
-            let neuron_id = getCurieFromIRI(neuron_iri);
-            let neuron_label = poData[i].Neuron_Label.value;
-            let neuronType =  {id: neuron_id, iri: neuron_iri, label: neuron_label};
-
-            let v1IRI = poData[i].V1.value;
-            let v1ID = getCurieFromIRI(v1IRI);
-            let v1Label = poData[i].V1_Label.value;
-            let v1 =  {id: v1ID, iri: v1IRI, label: v1Label};
-
-            let v2IRI = poData[i].V2.value;
-            let v2ID = getCurieFromIRI(v2IRI);
-            let v2Label = poData[i].V2_Label.value;
-            let v2 =  {id: v2ID, iri: v2IRI, label: v2Label};
-
-            let poset = {neuron: neuronType, node1: v1, node2: v2};
-            npo_poset_data.push(poset);
+    const neuronMetaDataIndex = {};
+    const neuronMetadataQueryResults = await executeDBQuery(conn, DB_NAME, npo_neuron_meta);
+    for (let n of neuronMetadataQueryResults) {
+        const id = getCurieFromIRI(n.Neuron_IRI.value);
+        
+        // Determine neuron's model category (if applicable)
+        let modelId = null;
+        let modelCategory = null;
+        
+        if (id) {
+            // Extract model prefix if it exists (e.g., "bolew")
+            const modelMatch = id.match(/^([a-zA-Z]+)\d+/);
+            if (modelMatch && modelMatch[1]) {
+                const potentialModelId = modelMatch[1].toLowerCase();
+                if (MODEL_CATEGORIES[potentialModelId]) {
+                    modelId = potentialModelId;
+                    modelCategory = MODEL_CATEGORIES[potentialModelId];
+                }
+            }
         }
-        return npo_poset_data;
+        
+        // Process phenotypes with categorization
+        const rawPhenotypes = n?.Phenotypes?.value ? n.Phenotypes.value.split(", ") : [];
+        const phenotypeIds = getPrefixesFromIRIs(n?.Phenotypes?.value);
+        
+        // Create categorized phenotypes
+        const categorizedPhenotypes = rawPhenotypes.map(p => {
+            return PHENOTYPE_CATEGORIES[p] || p;
+        });
+        
+        neuronMetaDataIndex[id] = {
+            id,
+            iri: n.Neuron_IRI.value,
+            label: n?.Neuron_Label?.value,
+            preferred_label: n?.Neuron_Pref_Label?.value,
+            sex: n?.Sex?.value,
+            species: getPrefixesFromIRIs(n?.Species?.value),
+            phenotypes: phenotypeIds,
+            categorized_phenotypes: categorizedPhenotypes,
+            forward_connections: getPrefixesFromIRIs(n?.Forward_Connections?.value),
+            alert: n?.Alert?.value,
+            reference: n?.Reference?.value,
+            diagram_link: n?.Diagram_Link?.value,
+            citation: n?.Citations?.value,
+            model_id: modelId,
+            model_category: modelCategory
+        };
     }
 
-    function getAtoBviaC(abc_data) {
-        let abc = [];
-        for (let i = 0; i < abc_data.length; i++) {
-            let neuron_iri = abc_data[i].Neuron_ID.value;
-            let neuron_id = getCurieFromIRI(neuron_iri);
-            let neuronType =  ClassEntity(neuron_id, neuron_iri, null);
-
-            let originIRI = abc_data[i].A_IRI.value;
-            let originID = getCurieFromIRI(originIRI);
-            let originLabel = abc_data[i].A_Label.value;
-            let origin =  ClassEntity(originID, originIRI, originLabel);
-
-            let destIRI = abc_data[i].B_IRI.value;
-            let destID = getCurieFromIRI(destIRI);
-            let destLabel = abc_data[i].B_Label.value;
-            let dest =  ClassEntity(destID, destIRI, destLabel);
-
-
-            let via = null;
-
-            if (abc_data[i].hasOwnProperty("C_IRI")) {
-                let viaIRI = abc_data[i].C_IRI.value;
-                let viaID = getCurieFromIRI(viaIRI);
-                let viaLabel = abc_data[i].C_Label.value;
-                via =  ClassEntity(viaID, viaIRI, viaLabel);
+    const aToBViaCQueryResults = await executeDBQuery(conn, DB_NAME, a_b_via_c);
+    const aToBViaC = aToBViaCQueryResults.map(n => {
+        const id = getCurieFromIRI(n.Neuron_ID.value);
+        const abc = {
+            neuron: {
+                id,
+                iri: n.Neuron_ID.value,
+            },
+            neuronMetaData: neuronMetaDataIndex[id],
+            origin: {
+                iri: n.A_IRI.value,
+                id: getCurieFromIRI(n.A_IRI.value),
+                label: n.A_Label.value
+            },
+            destination: {
+                iri: n.B_IRI.value,
+                id: getCurieFromIRI(n.B_IRI.value),
+                label: n.B_Label.value
             }
+        };
 
-            let target_organ = null;
-
-            if (abc_data[i].hasOwnProperty("Target_Organ_IRI")) {
-                let targetOrganIRI = abc_data[i].Target_Organ_IRI.value;
-                let targetOrganID = getCurieFromIRI(targetOrganIRI);
-                let targetOrganLabel = abc_data[i].Target_Organ_Label.value;
-                target_organ =  ClassEntity(targetOrganID, targetOrganIRI, targetOrganLabel);
+        if (n?.C_IRI) {
+            abc.via = {
+                iri: n.C_IRI.value,
+                id: getCurieFromIRI(n.C_IRI.value),
+                label: n.C_Label.value
+            };
+        }
+        if (n?.Target_Organ) {
+            abc.targetOrgan = {
+                iri: n.Target_Organ_IRI.value,
+                id: getCurieFromIRI(n.Target_Organ_IRI.value),
+                label: n.Target_Organ_Label.value
             }
-
-            let neuron_meta = npo_neurons_metadata.find(obj => obj.neuronID === neuron_id);
-
-            let abcData = new AtoBviaC(neuronType, origin, dest, via, neuron_meta, target_organ);
-            abc.push(abcData);
         }
         return abc;
+    });
+
+    const npoPartialOrderQueryResults = await executeDBQuery(conn, DB_NAME, npo_partial_order);
+    const npoPoset = npoPartialOrderQueryResults.map(p => {
+        // Extract node types (hasSomaLocation, hasAxonLocation, etc.)
+        const node1Type = p?.V1_Type?.value || null;
+        const node2Type = p?.V2_Type?.value || null;
+        
+        // Check if this is a synaptic connection
+        const isSynaptic = p?.IsSynapse?.value === "YES";
+        
+        return {
+            neuron: {
+                iri: p.Neuron_IRI.value,
+                id: getCurieFromIRI(p.Neuron_IRI.value),
+                label: p.Neuron_Label.value
+            },
+            node1: {
+                iri: p.V1.value,
+                id: getCurieFromIRI(p.V1.value),
+                label: p.V1_Label.value
+            },
+            node2: {
+                iri: p.V2.value,
+                id: getCurieFromIRI(p.V2.value),
+                label: p.V2_Label.value
+            },
+            node1_type: node1Type,
+            node2_type: node2Type,
+            is_synaptic: isSynaptic
+        };
+    });
+
+    return [aToBViaC, npoPoset];
+}
+
+function getPrefixesFromIRIs(iriString) {
+    if (!iriString) {
+        return iriString;
     }
 
-    function getNeuronsMetaData(neuronMetaData) {
-        let neurons_meta = [];
-        for (let i = 0; i < neuronMetaData.length; i++) {
-            let neuron_iri = neuronMetaData[i].Neuron_IRI.value;
-            let neuron_id = getCurieFromIRI(neuron_iri);
+    const iris = iriString.split("|");
 
-            let neuron_label = null;
-            if (neuronMetaData[i].hasOwnProperty("Neuron_Label"))
-                neuron_label = neuronMetaData[i].Neuron_Label.value;
-
-            let neuron_sex = null;
-            if (neuronMetaData[i].hasOwnProperty("Sex"))
-                neuron_sex = neuronMetaData[i].Sex.value;
-
-            let neuron_species = null;
-            if (neuronMetaData[i].hasOwnProperty("Species"))
-                neuron_species = neuronMetaData[i].Species.value;
-                neuron_species = getPrefixesFromIRIs(neuron_species);
-
-
-            let neuron_phenotypes = null;
-            if (neuronMetaData[i].hasOwnProperty("Phenotypes"))
-                neuron_phenotypes = neuronMetaData[i].Phenotypes.value;
-                neuron_phenotypes = getPrefixesFromIRIs(neuron_phenotypes);
-
-
-            let neuron_forward_connections = null;
-            if (neuronMetaData[i].hasOwnProperty("Forward_Connections")) {
-                neuron_forward_connections = neuronMetaData[i].Forward_Connections.value;
-                neuron_forward_connections = getPrefixesFromIRIs(neuron_forward_connections);
-            }
-
-            let neuron_alert = null;
-            if (neuronMetaData[i].hasOwnProperty("Alert"))
-                neuron_alert = neuronMetaData[i].Alert.value;
-
-            let neuron_reference = null;
-            if (neuronMetaData[i].hasOwnProperty("Reference"))
-                neuron_reference = neuronMetaData[i].Reference.value;
-
-            let neuron_meta_data = new NeuronMetaData(neuron_id, neuron_label, neuron_species, neuron_sex,
-                neuron_phenotypes, neuron_forward_connections,
-                neuron_alert, neuron_reference);
-            neurons_meta.push(neuron_meta_data);
+    const ret = [];
+    for (let iri of iris) {
+        if (!iri) {
+            continue;
         }
-        return neurons_meta;
-    }
-
-    function getPrefixesFromIRIs(iriString) {
-        const iris = iriString.split("|");
-
-        const ret = [];
-        for(let iri of iris) {
-            if(!iri) {
-                continue;
-            }
-            const ciri = getCurieFromIRI(iri);
-            if (ciri) {
-                ret.push(ciri);
-            }
+        const ciri = getCurieFromIRI(iri);
+        if (ciri) {
+            ret.push(ciri);
         }
-        return ret;
     }
-
-    function getStringAfterPipe(str) {
-        let index = str.indexOf('|');
-        if (index !== -1) {
-            return str.slice(index + 1).trim();
-        }
-        return str.trim();
-    }
-
+    return ret;
 }
