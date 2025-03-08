@@ -4,18 +4,13 @@ import { loadAllLocations, loadNPOSynonyms } from './load-npo-locations.js';
 import { loadABCData } from './load-abc.js';
 
 
-function addLabel(labels, obj, idattr = 'id', iriattr = 'iri', labelattr = 'label', extraAttrs = {}) {
+// Function to add labels to the label lookup dictionary
+// Labels dictionary should ONLY contain IRI and label mappings
+function addLabel(labels, obj, idattr = 'id', iriattr = 'iri', labelattr = 'label') {
    if (obj) {
       labels[obj[idattr]] = labels[obj[idattr]] || {};
       labels[obj[idattr]][iriattr] = obj[iriattr];
       labels[obj[idattr]][labelattr] = obj[labelattr];
-      
-      // Add any extra attributes
-      for (const [key, value] of Object.entries(extraAttrs)) {
-         if (obj[value] !== undefined) {
-            labels[obj[idattr]][key] = obj[value];
-         }
-      }
    }
    return labels;
 }
@@ -32,6 +27,28 @@ async function main() {
    const conn = new stardogjs.Connection(ConnectionInfo);
 
    const labels = {};
+   
+   // Add mappings for node types to labels dictionary
+   labels["hasSomaLocation"] = { 
+      iri: "http://uri.interlex.org/tgbugs/uris/readable/hasSomaLocation", 
+      label: "soma" 
+   };
+   labels["hasAxonLocation"] = { 
+      iri: "http://uri.interlex.org/tgbugs/uris/readable/hasAxonLocation", 
+      label: "axon" 
+   };
+   labels["hasAxonLeadingToSensoryTerminal"] = { 
+      iri: "http://uri.interlex.org/tgbugs/uris/readable/hasAxonLeadingToSensoryTerminal", 
+      label: "axon to sensory" 
+   };
+   labels["hasSensoryAxonTerminalLocation"] = { 
+      iri: "http://uri.interlex.org/tgbugs/uris/readable/hasSensoryAxonTerminalLocation", 
+      label: "sensory terminal" 
+   };
+   labels["hasAxonTerminalLocation"] = { 
+      iri: "http://uri.interlex.org/tgbugs/uris/readable/hasAxonTerminalLocation", 
+      label: "axon terminal" 
+   };
    const locations = await loadAllLocations(conn);
    const synonyms = await loadNPOSynonyms(conn);
    const abc_segments = await loadABCData(conn);
@@ -59,19 +76,22 @@ async function main() {
    abc.forEach((x) => {
       const meta = x.neuronMetaData;
       ret.neuron_metadata[meta.id] = {
+         // String fields (can be null but not undefined)
          label: meta.label,
          preferred_label: meta.preferred_label,
-         species: meta.species ? meta.species : null,
-         sex: meta?.sex,
-         phenotypes: meta.phenotypes,
-         categorized_phenotypes: meta.categorized_phenotypes,
-         forward_connections: meta.forward_connections,
-         alert: meta?.alert,
-         reference: meta?.reference,
-         diagram_link: meta?.diagram_link,
-         citation: meta?.citation,
-         model_id: meta?.model_id,
-         model_category: meta?.model_category
+         sex: meta.sex,
+         alert: meta.alert,
+         reference: meta.reference,
+         diagram_link: meta.diagram_link,
+         model_id: meta.model_id,
+         model_category: meta.model_category,
+         
+         // Array fields (always arrays, never null)
+         species: meta.species || [],
+         phenotypes: meta.phenotypes || [],
+         categorized_phenotypes: meta.categorized_phenotypes || [],
+         forward_connections: meta.forward_connections || [],
+         citation: meta.citation || []
       }
    });
 
@@ -83,44 +103,36 @@ async function main() {
       addLabel(labels, x.destination);
       addLabel(labels, x.targetOrgan);
 
-      if (x.neuron?.id) {
+      // If there's a preferred label, use it in the labels dictionary
+      if (x.neuron?.id && x.neuronMetaData?.preferred_label) {
+         labels[x.neuron.id].label = x.neuronMetaData.preferred_label;
+      }
+      // Otherwise use the regular label
+      else if (x.neuron?.id && x.neuronMetaData?.label) {
          labels[x.neuron.id].label = x.neuronMetaData.label;
-         
-         // Add preferred label if available
-         if (x.neuronMetaData.preferred_label) {
-            labels[x.neuron.id].preferred_label = x.neuronMetaData.preferred_label;
-         }
-         
-         // Add model category information if available
-         if (x.neuronMetaData.model_id) {
-            labels[x.neuron.id].model_id = x.neuronMetaData.model_id;
-            labels[x.neuron.id].model_category = x.neuronMetaData.model_category;
-         }
       }
    }
 
    ret.neural_segments = segments.map(x => ({
       id: x.neuron?.id,
-      node1: x.node1?.id,
-      node2: x.node2?.id,
-      node1_type: x.node1_type,
-      node2_type: x.node2_type,
+      nodes: [
+         {
+            id: x.node1?.id,
+            type: x.node1_type
+         },
+         {
+            id: x.node2?.id,
+            type: x.node2_type
+         }
+      ],
       is_synaptic: x.is_synaptic || false
    }));
 
+   // Add segment labels to the labels dictionary (only IRI and label mappings)
    for (let x of segments) {
       addLabel(labels, x.neuron);
       addLabel(labels, x.node1);
       addLabel(labels, x.node2);
-      
-      // Add node type information to the labels lookup
-      if (x.node1?.id && x.node1_type) {
-         labels[x.node1.id].node_type = x.node1_type;
-      }
-      
-      if (x.node2?.id && x.node2_type) {
-         labels[x.node2.id].node_type = x.node2_type;
-      }
    }
 
    // Enhanced locations with more detailed type information
@@ -131,12 +143,14 @@ async function main() {
          connection_type: x.connection_id
       })))
    );
+   
+   // Since node types are now included in the segments.nodes array,
+   // we don't need a separate node_types dictionary
 
-   // Add location info to the labels
+   // Add locations to the labels dictionary (only IRI and label mappings)
    for (let loc of locations) {
-      if (loc.id && labels[loc.id]) {
-         labels[loc.id].location_type = loc.connection_type;
-         labels[loc.id].connection_type = loc.connection_id;
+      if (loc.id) {
+         addLabel(labels, loc);
       }
    }
 
