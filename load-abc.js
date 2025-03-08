@@ -135,7 +135,7 @@ export async function loadABCData(conn) {
                 label: n.C_Label.value
             };
         }
-        if (n?.Target_Organ) {
+        if (n?.Target_Organ_IRI) {
             abc.targetOrgan = {
                 iri: n.Target_Organ_IRI.value,
                 id: getCurieFromIRI(n.Target_Organ_IRI.value),
