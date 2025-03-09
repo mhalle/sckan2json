@@ -75,11 +75,21 @@ export async function loadABCData(conn) {
         
         // Process phenotypes with categorization
         const rawPhenotypes = n?.Phenotypes?.value ? n.Phenotypes.value.split(", ") : [];
-        const phenotypeIds = getPrefixesFromIRIs(n?.Phenotypes?.value);
         
-        // Create categorized phenotypes
-        const categorizedPhenotypes = rawPhenotypes.map(p => {
-            return PHENOTYPE_CATEGORIES[p] || p;
+        // Keep the raw phenotype strings as they are
+        const phenotypeIds = rawPhenotypes;
+        
+        // Create categorized phenotypes from the raw phenotypes
+        const categorizedPhenotypes = [];
+        
+        rawPhenotypes.forEach(p => {
+            const categoryInfo = PHENOTYPE_CATEGORIES[p];
+            if (categoryInfo) {
+                categorizedPhenotypes.push(categoryInfo);
+            } else {
+                // If no category mapping exists, use the raw phenotype as is
+                categorizedPhenotypes.push(p);
+            }
         });
         
         // Extract DOIs from reference string
@@ -203,29 +213,43 @@ function getPrefixesFromIRIs(iriString) {
             continue;
         }
         const ciri = getCurieFromIRI(iri);
-        if (ciri) {
+        // Only include if the result is an actual CURIE with a prefix
+        // (contains a colon and different from the original string)
+        if (ciri && ciri.includes(':') && ciri !== iri) {
             ret.push(ciri);
         }
     }
     return ret;
 }
 
-// Extract DOI URLs from reference strings
+// Extract DOI URLs and surrounding text from reference strings
 function extractDOIsFromReference(referenceString) {
     if (!referenceString) {
         return [];
     }
     
-    // Match DOI URLs of the format https://doi.org/10.xxxx/xxxxx
-    const doiRegex = /https:\/\/doi\.org\/([0-9]+\.[0-9]+\/[^\s,]+)/g;
-    let match;
+    // Split the reference string into individual citation entries
+    // Reference entries typically start with "- " or a comma
+    const entries = referenceString.split(/,\s*-\s*|\s*-\s*/).filter(entry => entry.trim().length > 0);
     const dois = [];
     
-    // Find all DOIs in the string
-    while ((match = doiRegex.exec(referenceString)) !== null) {
+    // Process each citation entry
+    for (const entry of entries) {
+        // Match DOI URLs of the format https://doi.org/10.xxxx/xxxxx
+        const doiMatch = entry.match(/https:\/\/doi\.org\/([0-9]+\.[0-9]+\/[^\s,]+)/);
+        if (!doiMatch) continue;
+        
+        const url = doiMatch[0];
+        const doi = doiMatch[1];
+        
+        // Get the surrounding text by removing the DOI URL
+        const surroundingText = entry.replace(url, "").trim();
+        
+        // Push the extracted information
         dois.push({
-            url: match[0],
-            doi: match[1]
+            url,               // The full DOI URL
+            doi,               // Just the DOI number
+            label: surroundingText // The surrounding text as the label
         });
     }
     

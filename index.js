@@ -69,113 +69,236 @@ async function main() {
             "properties": {
                "metadata": {
                   "type": "object",
+                  "description": "Metadata about this data export, including version and documentation",
                   "properties": {
-                     "query_date": { "type": "string", "format": "date-time" },
-                     "version": { "type": "string" },
-                     "description": { "type": "string" },
-                     "json_schema": { "type": "object" },
-                     "documentation": { "type": "string" }
+                     "query_date": { 
+                        "type": "string", 
+                        "format": "date-time",
+                        "description": "The date and time when this data was exported from the database" 
+                     },
+                     "version": { 
+                        "type": "string",
+                        "description": "Version of the data format" 
+                     },
+                     "description": { 
+                        "type": "string",
+                        "description": "Human-readable description of this data export" 
+                     },
+                     "json_schema": { 
+                        "type": "object",
+                        "description": "JSON Schema definition for this data format" 
+                     },
+                     "documentation": { 
+                        "type": "string",
+                        "description": "Extended documentation of all fields and how to use them" 
+                     }
                   },
                   "required": ["query_date", "version"]
                },
                "neural_connectivity": {
                   "type": "array",
+                  "description": "Array of neural connectivity records representing connections between anatomical locations",
                   "items": {
                      "type": "object",
+                     "description": "A single neural connectivity record",
                      "properties": {
-                        "id": { "type": "string" },
-                        "origin": { "type": "string" },
-                        "via": { "type": "string" },
-                        "destination": { "type": "string" },
-                        "target_organ": { "type": "string" }
+                        "id": { 
+                           "type": "string",
+                           "description": "Unique identifier (CURIE) for the neuron" 
+                        },
+                        "origin": { 
+                           "type": "string",
+                           "description": "CURIE of the origin/source anatomical location" 
+                        },
+                        "via": { 
+                           "type": "string",
+                           "description": "CURIE of the intermediate anatomical location (if applicable)" 
+                        },
+                        "destination": { 
+                           "type": "string",
+                           "description": "CURIE of the destination/target anatomical location" 
+                        },
+                        "target_organ": { 
+                           "type": "string",
+                           "description": "CURIE of the target organ (if applicable)" 
+                        }
                      },
                      "required": ["id"]
                   }
                },
                "neuron_metadata": {
                   "type": "object",
+                  "description": "Dictionary of neuron metadata indexed by neuron ID",
                   "additionalProperties": {
                      "type": "object",
+                     "description": "Metadata for a single neuron record",
                      "properties": {
-                        "label": { "type": "string" },
-                        "preferred_label": { "type": "string" },
-                        "sex": { "type": "string" },
-                        "alert": { "type": "string" },
-                        "reference": { "type": "string" },
-                        "diagram_link": { "type": "string" },
-                        "model_id": { "type": "string" },
-                        "model_category": { "type": "string" },
+                        "label": { 
+                           "type": "string",
+                           "description": "Human-readable label for the neuron" 
+                        },
+                        "preferred_label": { 
+                           "type": "string",
+                           "description": "Preferred display label for the neuron (if different from the standard label)" 
+                        },
+                        "sex": { 
+                           "type": "string",
+                           "description": "Sex specification for the neuron (e.g., male, female, both)" 
+                        },
+                        "alert": { 
+                           "type": "string",
+                           "description": "Alert notes or warnings about this neuron data" 
+                        },
+                        "reference": { 
+                           "type": "string",
+                           "description": "Full reference text for the source of this neuron data" 
+                        },
+                        "diagram_link": { 
+                           "type": "string",
+                           "description": "URL to a diagram illustrating this neuron's connectivity" 
+                        },
+                        "model_id": { 
+                           "type": "string",
+                           "description": "Model identifier (e.g., 'bolew', 'keast') that categorizes this neuron" 
+                        },
+                        "model_category": { 
+                           "type": "string",
+                           "description": "Human-readable model category (e.g., 'Keast Model of Bladder Innervation')" 
+                        },
                         "species": { 
                            "type": "array", 
-                           "items": { "type": "string" } 
+                           "description": "Array of species in which this neuron is observed",
+                           "items": { 
+                             "type": "string",
+                             "description": "Species name" 
+                           } 
                         },
                         "phenotypes": { 
                            "type": "array", 
-                           "items": { "type": "string" } 
+                           "description": "Array of raw phenotype strings from the database",
+                           "items": { 
+                             "type": "string",
+                             "description": "Phenotype string (e.g., 'Intrinsic phenotype')" 
+                           } 
                         },
                         "categorized_phenotypes": { 
                            "type": "array", 
-                           "items": { "type": "string" } 
+                           "description": "Array of human-readable phenotype categories",
+                           "items": { 
+                             "type": "string",
+                             "description": "Categorized phenotype (e.g., 'Circuit Role: Intrinsic')" 
+                           } 
                         },
                         "forward_connections": { 
                            "type": "array", 
-                           "items": { "type": "string" } 
+                           "description": "Array of forward neural connections (target neuron CURIEs)",
+                           "items": { 
+                             "type": "string",
+                             "description": "CURIE of a target neuron" 
+                           } 
                         },
                         "citation": { 
                            "type": "array", 
-                           "items": { "type": "string" } 
+                           "description": "Array of citation references",
+                           "items": { 
+                             "type": "string",
+                             "description": "Citation reference CURIE" 
+                           } 
                         },
                         "reference_dois": { 
                            "type": "array", 
-                           "items": { "type": "string" } 
+                           "description": "Array of DOI URLs extracted from references",
+                           "items": { 
+                             "type": "string",
+                             "description": "DOI URL (e.g., 'https://doi.org/10.1234/5678')" 
+                           } 
                         }
                      }
                   }
                },
                "neural_segments": {
                   "type": "array",
+                  "description": "Array of ordered neuron pathway segments showing anatomical connections",
                   "items": {
                      "type": "object",
+                     "description": "A single neural pathway segment for a specific neuron",
                      "properties": {
-                        "id": { "type": "string" },
+                        "id": { 
+                           "type": "string",
+                           "description": "CURIE of the neuron" 
+                        },
                         "nodes": {
                            "type": "array",
+                           "description": "Ordered array of connection nodes forming a pathway",
                            "items": {
                               "type": "object",
+                              "description": "A location node in the neural pathway",
                               "properties": {
-                                 "id": { "type": "string" },
-                                 "type": { "type": "string" }
+                                 "id": { 
+                                    "type": "string",
+                                    "description": "CURIE of the anatomical location" 
+                                 },
+                                 "type": { 
+                                    "type": "string",
+                                    "description": "Node type (e.g., 'hasSomaLocation', 'hasAxonLocation')" 
+                                 }
                               },
                               "required": ["id"]
                            }
                         },
-                        "is_synaptic": { "type": "boolean" }
+                        "is_synaptic": { 
+                           "type": "boolean",
+                           "description": "Boolean indicating if this is a synaptic connection" 
+                        }
                      },
                      "required": ["id", "nodes"]
                   }
                },
                "locations": {
                   "type": "array",
+                  "description": "Array of anatomical locations used in neural connectivity",
                   "items": {
                      "type": "object",
+                     "description": "A single anatomical location record",
                      "properties": {
-                        "id": { "type": "string" },
-                        "location_type": { "type": "string" },
-                        "connection_type": { "type": "string" }
+                        "id": { 
+                           "type": "string",
+                           "description": "CURIE of the anatomical location" 
+                        },
+                        "location_type": { 
+                           "type": "string",
+                           "description": "Type categorization (soma, axon, terminal, sensory)" 
+                        },
+                        "connection_type": { 
+                           "type": "string",
+                           "description": "Connection type ID for this location" 
+                        }
                      },
                      "required": ["id"]
                   }
                },
                "labels": {
                   "type": "object",
+                  "description": "Dictionary mapping IDs to IRIs and human-readable labels",
                   "additionalProperties": {
                      "type": "object",
+                     "description": "Label information for a single ID",
                      "properties": {
-                        "iri": { "type": "string" },
-                        "label": { "type": "string" },
+                        "iri": { 
+                           "type": "string",
+                           "description": "Full IRI (URI reference) for this ID" 
+                        },
+                        "label": { 
+                           "type": "string",
+                           "description": "Human-readable label for this ID" 
+                        },
                         "synonyms": {
                            "type": "array",
-                           "items": { "type": "string" }
+                           "description": "Array of alternative labels or synonyms",
+                           "items": { 
+                              "type": "string",
+                              "description": "Alternative label or synonym" 
+                           }
                         }
                      },
                      "required": ["iri", "label"]
@@ -183,11 +306,19 @@ async function main() {
                },
                "doi_metadata": {
                   "type": "object",
+                  "description": "Dictionary of DOI information extracted from references",
                   "additionalProperties": {
                      "type": "object",
+                     "description": "Metadata for a single DOI reference",
                      "properties": {
-                        "doi": { "type": "string" },
-                        "label": { "type": "string" }
+                        "doi": { 
+                           "type": "string",
+                           "description": "The DOI number (e.g., '10.1159/000060678')" 
+                        },
+                        "label": { 
+                           "type": "string",
+                           "description": "The citation text from the reference containing this DOI" 
+                        }
                      },
                      "required": ["doi"]
                   }
